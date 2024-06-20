@@ -5,8 +5,11 @@ import numpy as np
 TEXT_FORMATS = (cv2.FONT_HERSHEY_PLAIN, 1.0, (0, 0xFF, 0), 1)
 TEXT_SPACING = 18
 WND_NAME = 'Color Matcher'
-SAMPLE_COUNT = 20
+SAMPLE_COUNT = 200
+SAMPLE_DISCARD = 150
 WND_SIZE = (1280, 720)
+
+assert(SAMPLE_COUNT > SAMPLE_DISCARD)
 
 # Create an array of shape (16^3, 3) with each channel ranging from 0 to 255 (step of 16)
 l_values = np.arange(0, 256, 16)
@@ -73,11 +76,18 @@ while(True):
 
 cindex = 0
 samples = 0
+aggregated_frame = None
 while(True):
     ret, frame = cap.read()
 
+    if aggregated_frame is None or aggregated_frame.shape != frame.shape:
+        aggregated_frame = np.ndarray(frame.shape, float)
+    if samples > SAMPLE_DISCARD:
+        aggregated_frame += frame
+    samples += 1
+
     clr_target_ = REF_POINTS[cindex]
-    clr_measured_ = np.array(cv2.mean(frame)).astype(np.uint8)[:3]
+    clr_measured_ = np.array(cv2.mean(aggregated_frame / (samples - SAMPLE_DISCARD))).astype(np.uint8)[:3]
     h, w, *_ = frame.shape
     frame[h//2:, :] = clr_target_
     cv2.putText(frame, f'target={clr_target_}',     (12, 1*TEXT_SPACING+8), *TEXT_FORMATS)
@@ -98,9 +108,9 @@ while(True):
     elif k_ > 0 and k_ < 0xFF:
         print(k_)
 
-    samples += 1
     if samples > SAMPLE_COUNT:
         samples = 0
+        aggregated_frame = None
         cindex += 1
         if cindex > len(REF_POINTS): cindex = 0
 
