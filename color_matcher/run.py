@@ -23,8 +23,8 @@ CAM_PROPS = (
     (cv2.CAP_PROP_CONTRAST, 'contra'),
     (cv2.CAP_PROP_SATURATION, 'sat'),
     (cv2.CAP_PROP_HUE, 'hue'),
-    (cv2.CAP_PROP_GAIN, 'g'),
-    (cv2.CAP_PROP_EXPOSURE, 'e'),
+    (cv2.CAP_PROP_GAIN, 'gain'),
+    (cv2.CAP_PROP_EXPOSURE, 'eexposure'),
     (cv2.CAP_PROP_AUTO_EXPOSURE, 'ae'),
     (cv2.CAP_PROP_GAMMA, 'gamma'),
     (cv2.CAP_PROP_ISO_SPEED, 'iso'),
@@ -38,17 +38,20 @@ cap = cv2.VideoCapture()
 cap.open(0, cv2.CAP_DSHOW)
 cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.0)
 cap.set(cv2.CAP_PROP_GAIN, 0.0)
-cap.set(cv2.CAP_PROP_EXPOSURE, 0.0)
+cap.set(cv2.CAP_PROP_EXPOSURE, -6.0)
 
 
 cv2.namedWindow(WND_NAME, cv2.WINDOW_KEEPRATIO)
+
+GRAY_NEUTRAL = 0.18
 neutral_ = np.ndarray((1, 1, 3), np.uint8)
-neutral_[:, :] = (255 * 0.18, 128, 128)
+neutral_[:, :] = (255 * GRAY_NEUTRAL, 128, 128)
 neutral_ = cv2.cvtColor(neutral_, cv2.COLOR_LAB2BGR).reshape(3)
 while(True):
     ret, frame = cap.read()
-    clr_measured_ = np.array(cv2.mean(frame)).astype(np.uint8)[:3]
-    clr_measured_ = cv2.cvtColor(clr_measured_.reshape(1, 1, -1), cv2.COLOR_BGR2LAB).reshape(-1, 3)
+    clr_measured_ = np.array(cv2.mean(frame))[:3].astype(np.uint8)
+    clr_measured_ = cv2.cvtColor(clr_measured_.reshape(1, 1, -1), cv2.COLOR_BGR2LAB).flatten()
+    exposure_measured_ = clr_measured_[0] / 255
 
     h, w, *_ = frame.shape
     frame[h//2:, :] = neutral_
@@ -57,13 +60,15 @@ while(True):
                 (12, 1*TEXT_SPACING+8), *TEXT_FORMATS)
     cv2.putText(frame, f'white balance to stabilize. Press any key to continue...',
                 (12, 2*TEXT_SPACING+8), *TEXT_FORMATS)
-    cv2.putText(frame, f'measured={clr_measured_.ravel()}',
+    cv2.putText(frame, f'measured={exposure_measured_:.2f} (target={GRAY_NEUTRAL:.2f})',
                 (12, 4*TEXT_SPACING+8), *TEXT_FORMATS)
     cv2.imshow(WND_NAME, frame)
     cv2.resizeWindow(WND_NAME, *WND_SIZE)
 
     k_ = cv2.waitKey(1) & 0xFF
-    if k_ > 0 and k_ < 0xFF:
+    if k_ == 27:
+        exit()
+    elif k_ > 0 and k_ < 0xFF:
         break
 
 cindex = 0
